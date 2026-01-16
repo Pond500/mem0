@@ -1,0 +1,404 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mem0 Local Memory API",
+    "description": "Self-hosted memory management system for AI agents. Enables long-term memory across conversations by storing and retrieving user context, preferences, and history.",
+    "version": "1.0.0",
+    "x-tool-name": "mem0_local"
+  },
+  "servers": [
+    {
+      "url": "https://8f2a63040ff9.ngrok-free.app",
+      "description": "Mem0 API via ngrok"
+    }
+  ],
+  "paths": {
+    "/memory/search": {
+      "post": {
+        "summary": "Search Memories",
+        "description": "🔍 USE THIS FIRST before every response! Search user's memory to recall past information and understand context. Call this at the START of every conversation turn to retrieve relevant memories based on current user message.",
+        "operationId": "searchMemories",
+        "x-openai-isConsequential": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query", "user_id"],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Search query - use keywords from user's current message, or topics to recall (e.g., 'programming preferences', 'Python', 'user goals'). This will do semantic search across all user's memories.",
+                    "examples": ["programming preferences", "Python FastAPI", "user goals", "food likes"]
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "User identifier - REQUIRED to separate memories per user. Use the current user's ID.",
+                    "examples": ["user123", "pond", "{{user_id}}"]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "Maximum number of memory results to return (default: 5, recommended: 5-10)"
+                  }
+                }
+              },
+              "example": {
+                "query": "programming preferences",
+                "user_id": "user123",
+                "limit": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results returned successfully. Use these memories to personalize your response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "description": "Array of relevant memories, ordered by relevance",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "memory": {
+                            "type": "string",
+                            "description": "The memory content"
+                          },
+                          "score": {
+                            "type": "number",
+                            "description": "Relevance score (higher = more relevant)"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": "success",
+                  "data": [
+                    {
+                      "memory": "User's name is John, age 28, works as software developer",
+                      "score": 0.89
+                    },
+                    {
+                      "memory": "Prefers Python programming language and FastAPI framework",
+                      "score": 0.85
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/add": {
+      "post": {
+        "summary": "Add Memory",
+        "description": "💾 Save NEW important information ONLY. Use when user shares: name/age/job, preferences (likes/dislikes), goals/plans, or problems. DO NOT save: greetings, questions, casual chat, or 'thank you'. Format: structured summary like 'Name: X, Age: Y, Job: Z' or 'Likes: A, Dislikes: B'.",
+        "operationId": "addMemory",
+        "x-openai-isConsequential": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["messages", "user_id"],
+                "properties": {
+                  "messages": {
+                    "type": "string",
+                    "description": "IMPORTANT: Memory content in STRUCTURED format. Examples: ✅'Name: John, Age: 28, Job: developer' ✅'Likes: Python, FastAPI' ✅'Goal: learn AI' ❌'user said something' ❌'maybe they like Python'",
+                    "examples": [
+                      "Name: John, Age: 28, Job: software developer, Location: Bangkok",
+                      "Likes: Python programming, FastAPI framework, Dislikes: JavaScript",
+                      "Goal: to learn AI and machine learning, build chatbot",
+                      "Problem: encountering bug in FastAPI routing",
+                      "Hobbies: watches F1, supports Red Bull Racing"
+                    ]
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "User identifier - REQUIRED to separate memories per user",
+                    "examples": ["user123", "pond"]
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Optional metadata like category, timestamp, importance level",
+                    "properties": {
+                      "category": {
+                        "type": "string",
+                        "enum": ["profile", "preference", "goal", "problem", "history"],
+                        "description": "Memory category for better organization"
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": [
+                {
+                  "messages": "Name: John, Age: 28, Job: developer",
+                  "user_id": "user123",
+                  "metadata": {
+                    "category": "profile"
+                  }
+                },
+                {
+                  "messages": "Prefers: Python, FastAPI. Dislikes: verbose syntax",
+                  "user_id": "user123",
+                  "metadata": {
+                    "category": "preference"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory saved successfully. Continue conversation without announcing 'I saved this'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "memory_id": {
+                          "type": "string",
+                          "description": "Unique ID of the saved memory"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/all": {
+      "get": {
+        "summary": "Get All Memories",
+        "description": "📋 Retrieve ALL user memories. ONLY use when user explicitly asks: 'what do you remember about me?' or 'show my memories' or 'tell me what you know'. DO NOT use for normal questions or conversation.",
+        "operationId": "getAllMemories",
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "User identifier - REQUIRED to get specific user's memories",
+            "examples": ["user123", "pond"]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All user memories returned. Present these in a friendly, organized way.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "description": "All stored memories for this user",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "memory": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": "success",
+                  "data": [
+                    {
+                      "id": "mem_001",
+                      "memory": "Name: John, Age: 28, Job: developer",
+                      "created_at": "2024-01-05T10:00:00Z"
+                    },
+                    {
+                      "id": "mem_002",
+                      "memory": "Prefers: Python, FastAPI",
+                      "created_at": "2024-01-05T10:05:00Z"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/update": {
+      "put": {
+        "summary": "Update Memory",
+        "description": "✏️ Update existing memory content. Use when user corrects or updates previous information (e.g., 'actually I'm 29 now' or 'I changed my mind about...'). Requires memory_id from previous search/get operation.",
+        "operationId": "updateMemory",
+        "x-openai-isConsequential": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["memory_id", "data"],
+                "properties": {
+                  "memory_id": {
+                    "type": "string",
+                    "description": "ID of the memory to update (get this from searchMemories or getAllMemories results)",
+                    "examples": ["mem_abc123"]
+                  },
+                  "data": {
+                    "type": "string",
+                    "description": "New memory content in structured format",
+                    "examples": ["Name: John, Age: 29, Job: senior developer"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory updated successfully"
+          }
+        }
+      }
+    },
+    "/memory/delete": {
+      "delete": {
+        "summary": "Delete Memory",
+        "description": "🗑️ Delete a specific memory. Use when user asks to forget something or remove incorrect information. Requires memory_id. Use with caution.",
+        "operationId": "deleteMemory",
+        "x-openai-isConsequential": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["memory_id"],
+                "properties": {
+                  "memory_id": {
+                    "type": "string",
+                    "description": "ID of the memory to delete (get this from searchMemories or getAllMemories results)",
+                    "examples": ["mem_abc123"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory deleted successfully"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the Memory API is running and accessible. Use for debugging only, not during normal conversation.",
+        "operationId": "healthCheck",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "API is healthy and ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-tool-usage-guide": {
+    "decision_tree": {
+      "step_1": "ALWAYS call searchMemories first with user's message keywords",
+      "step_2": "Analyze if message contains NEW important info (name/age/job/preferences/goals/problems)",
+      "step_3": "If YES: call addMemory with structured format. If NO: skip to response",
+      "step_4": "Generate natural response using retrieved memories",
+      "special_case": "If user asks 'what do you remember?': use getAllMemories instead of searchMemories"
+    },
+    "save_triggers": {
+      "✅_save": [
+        "Profile: name, age, job, location",
+        "Preferences: likes, dislikes, favorites",
+        "Goals: plans, objectives, learning",
+        "Problems: issues, bugs, challenges"
+      ],
+      "❌_dont_save": [
+        "Greetings: hi, hello, สวัสดี",
+        "Questions: what, how, why, when",
+        "Casual: thanks, ok, yes, no",
+        "Generic chat without new info"
+      ]
+    },
+    "memory_format_examples": {
+      "good": [
+        "Name: John, Age: 28, Job: developer",
+        "Likes: Python, FastAPI. Dislikes: verbose code",
+        "Goal: learn AI, build chatbot project",
+        "Problem: FastAPI routing issue with async"
+      ],
+      "bad": [
+        "user said something about programming",
+        "maybe they like Python",
+        "the user mentioned their job"
+      ]
+    }
+  }
+}

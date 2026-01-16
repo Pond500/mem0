@@ -1,10 +1,68 @@
-# Mem0 Docker Setup
+# 🧠 Mem0 - Memory Management System for AI Agents
+
+<div align="center">
+
+![Mem0](https://img.shields.io/badge/Mem0-Memory%20Management-blue)
+![Docker](https://img.shields.io/badge/Docker-Compose-blue)
+![Python](https://img.shields.io/badge/Python-3.11-green)
+![Tests](https://img.shields.io/badge/Tests-13%2F13%20Passing-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+**Self-hosted memory management system for AI agents with semantic search, auto-extraction, and user isolation.**
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [API Reference](#-api-endpoints) • [Testing](#-testing)
+
+</div>
+
+---
+
+## 🎯 Overview
+
+Mem0 is a complete memory management solution for AI agents that provides:
+- **Semantic Search**: Understand meaning, not just keywords
+- **Auto-Extraction**: One input → Multiple memories automatically
+- **User Isolation**: Per-user data separation
+- **Custom LLM**: Use your own LLM endpoint
+- **Local Embeddings**: BAAI/bge-m3 (1024 dimensions)
+- **Vector Database**: Qdrant for efficient similarity search
+- **REST API**: 6 endpoints for complete memory operations
+- **Dify Integration**: Ready-to-use with Dify agents
 
 Memory management system for AI agents using Mem0 and Qdrant vector database.
 
+---
+
+## ✨ Features
+
+### Core Capabilities
+- 🔍 **Semantic Search** - Understands context and meaning
+- 💾 **Auto-Extraction** - Automatically creates multiple memories from text
+- 👥 **User Isolation** - Complete data separation per user
+- 🎯 **Relevance Scoring** - Results ranked by similarity (0.0 - 1.0)
+- ⚡ **Fast & Efficient** - Optimized vector search with Qdrant
+- 🔄 **Full CRUD** - Create, Read, Update, Delete operations
+
+### Technical Stack
+- 🐳 **Docker Compose** - Easy deployment
+- 🐍 **Python 3.11** - Modern Python
+- 🗄️ **Qdrant** - Vector database
+- 🤖 **Custom LLM** - ptm-oss-120b (or your choice)
+- 📊 **Local Embeddings** - BAAI/bge-m3 (1024 dims)
+- 🚀 **FastAPI** - High-performance API
+- 🔗 **Dify Ready** - Integration guides included
+
+---
+
 ## 🚀 Quick Start
 
-### 1. Setup Environment Variables
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Pond500/mem0.git
+cd mem0
+```
+
+### 2. Setup Environment Variables
 
 ```bash
 # Copy the example env file

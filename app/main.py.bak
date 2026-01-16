@@ -1,29 +1,16 @@
 import os
-import json
-import re
 from dotenv import load_dotenv
 from mem0 import Memory
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
-from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
 
 # Initialize FastAPI
 app = FastAPI(title="Mem0 API", description="Memory Management for AI Agents")
-
-# Add CORS Middleware to allow requests from Dashboard (localhost:3000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (for development)
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
 
 # Mem0 Configuration with Custom LLM and Local Embeddings
 embedding_provider = os.getenv("EMBEDDING_PROVIDER", "huggingface")
@@ -94,96 +81,18 @@ def read_root():
         }
     }
 
-# Tag Generation Function
-def generate_tags(text: str) -> list:
-    """Generate tags for a memory using LLM"""
-    try:
-        # Initialize OpenAI client with custom base URL
-        client = OpenAI(
-            api_key=os.getenv("LLM_API_KEY"),
-            base_url=os.getenv("LLM_BASE_URL", "https://tokenmind.abdul.in.th/v1")
-        )
-        
-        # Create prompt for tag generation
-        prompt = f"""Generate 2-4 short tags (single words) for this memory: "{text}"
-
-Examples: work, food, sports, preference, tech, personal, travel, health
-
-Return ONLY comma-separated tags, like: work, tech, personal
-
-Tags:"""
-        
-        # Call LLM with more tokens
-        response = client.chat.completions.create(
-            model=os.getenv("LLM_MODEL", "ptm-oss-120b"),
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500,
-            temperature=0.3
-        )
-        
-        # Parse response - check both content and reasoning_content
-        content = None
-        if hasattr(response, 'choices') and len(response.choices) > 0:
-            choice = response.choices[0]
-            if hasattr(choice, 'message'):
-                # Try content first
-                content = getattr(choice.message, 'content', None)
-                # If content is None, try reasoning_content
-                if not content:
-                    content = getattr(choice.message, 'reasoning_content', None)
-        
-        if not content:
-            print(f"Warning: LLM returned no content. Response: {response}")
-            return ["general"]
-            
-        tags_text = content.strip()
-        print(f"Tags text from LLM: {tags_text}")
-        
-        # Extract tags from response (handle various formats)
-        # Remove common prefixes
-        tags_text = tags_text.replace("Tags:", "").replace("tags:", "")
-        
-        # Clean and split tags
-        tags = [tag.strip().lower() for tag in re.split(r'[,;]', tags_text) if tag.strip()]
-        
-        # Filter and limit
-        tags = [t for t in tags if t and len(t) > 1 and len(t) < 20][:4]
-        
-        if not tags:
-            print(f"Warning: No valid tags from: {tags_text}")
-            return ["general"]
-            
-        print(f"✅ Generated tags: {tags}")
-        return tags
-        
-    except Exception as e:
-        print(f"❌ Tag generation error: {e}")
-        import traceback
-        traceback.print_exc()
-        return ["general"]
-
 @app.post("/memory/add")
 def add_memory(request: AddMemoryRequest):
-    """Add a new memory with auto-generated tags"""
+    """Add a new memory"""
     try:
-        # Generate tags from memory text
-        memory_text = request.messages if isinstance(request.messages, str) else request.messages[0].get("content", "") if request.messages else ""
-        tags = generate_tags(memory_text)
-        
-        # Merge tags into metadata
-        metadata = request.metadata or {}
-        metadata["tags"] = tags
-        
         result = memory.add(
             messages=request.messages,
             user_id=request.user_id,
             agent_id=request.agent_id,
             run_id=request.run_id,
-            metadata=metadata
+            metadata=request.metadata
         )
-        return {"status": "success", "data": result, "tags": tags}
+        return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -281,13 +190,6 @@ def get_all_memories_admin(limit: int = 100, offset: Optional[str] = None):
         results = []
         for point in points:
             payload = point.payload or {}
-            
-            # Extract metadata - check for tags in payload
-            metadata = payload.get("metadata", {}) or {}
-            # If tags are stored directly in payload (not in metadata), add them
-            if "tags" in payload:
-                metadata["tags"] = payload["tags"]
-            
             # Map Qdrant payload to Memory format
             results.append({
                 "id": str(point.id),
@@ -295,7 +197,7 @@ def get_all_memories_admin(limit: int = 100, offset: Optional[str] = None):
                 "user_id": payload.get("user_id", "unknown"),
                 "agent_id": payload.get("agent_id"),
                 "run_id": payload.get("run_id"),
-                "metadata": metadata if metadata else None,
+                "metadata": payload.get("metadata"),
                 "created_at": payload.get("created_at"),
                 "updated_at": payload.get("updated_at"),
                 "hash": payload.get("hash")

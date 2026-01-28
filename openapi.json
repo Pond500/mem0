@@ -25,17 +25,29 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["query", "user_id"],
+                "required": [
+                  "query",
+                  "user_id"
+                ],
                 "properties": {
                   "query": {
                     "type": "string",
                     "description": "Search query - use keywords from user's current message, or topics to recall (e.g., 'programming preferences', 'Python', 'user goals'). This will do semantic search across all user's memories.",
-                    "examples": ["programming preferences", "Python FastAPI", "user goals", "food likes"]
+                    "examples": [
+                      "programming preferences",
+                      "Python FastAPI",
+                      "user goals",
+                      "food likes"
+                    ]
                   },
                   "user_id": {
                     "type": "string",
-                    "description": "User identifier - REQUIRED to separate memories per user. Use the current user's ID.",
-                    "examples": ["user123", "pond", "{{user_id}}"]
+                    "description": "User identifier - REQUIRED. Use {{sys.conversation_id}} in Dify Agent to separate memories per conversation.",
+                    "default": "{{sys.conversation_id}}",
+                    "examples": [
+                      "{{sys.conversation_id}}",
+                      "conv_abc123"
+                    ]
                   },
                   "limit": {
                     "type": "integer",
@@ -116,7 +128,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["messages", "user_id"],
+                "required": [
+                  "messages",
+                  "user_id"
+                ],
                 "properties": {
                   "messages": {
                     "type": "string",
@@ -131,8 +146,12 @@
                   },
                   "user_id": {
                     "type": "string",
-                    "description": "User identifier - REQUIRED to separate memories per user",
-                    "examples": ["user123", "pond"]
+                    "description": "User identifier - REQUIRED. Use {{sys.conversation_id}} in Dify Agent.",
+                    "default": "{{sys.conversation_id}}",
+                    "examples": [
+                      "{{sys.conversation_id}}",
+                      "conv_xyz789"
+                    ]
                   },
                   "metadata": {
                     "type": "object",
@@ -140,7 +159,13 @@
                     "properties": {
                       "category": {
                         "type": "string",
-                        "enum": ["profile", "preference", "goal", "problem", "history"],
+                        "enum": [
+                          "profile",
+                          "preference",
+                          "goal",
+                          "problem",
+                          "history"
+                        ],
                         "description": "Memory category for better organization"
                       }
                     }
@@ -210,7 +235,10 @@
               "type": "string"
             },
             "description": "User identifier - REQUIRED to get specific user's memories",
-            "examples": ["user123", "pond"]
+            "examples": [
+              "user123",
+              "pond"
+            ]
           }
         ],
         "responses": {
@@ -279,17 +307,24 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["memory_id", "data"],
+                "required": [
+                  "memory_id",
+                  "data"
+                ],
                 "properties": {
                   "memory_id": {
                     "type": "string",
                     "description": "ID of the memory to update (get this from searchMemories or getAllMemories results)",
-                    "examples": ["mem_abc123"]
+                    "examples": [
+                      "mem_abc123"
+                    ]
                   },
                   "data": {
                     "type": "string",
                     "description": "New memory content in structured format",
-                    "examples": ["Name: John, Age: 29, Job: senior developer"]
+                    "examples": [
+                      "Name: John, Age: 29, Job: senior developer"
+                    ]
                   }
                 }
               }
@@ -315,12 +350,16 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["memory_id"],
+                "required": [
+                  "memory_id"
+                ],
                 "properties": {
                   "memory_id": {
                     "type": "string",
                     "description": "ID of the memory to delete (get this from searchMemories or getAllMemories results)",
-                    "examples": ["mem_abc123"]
+                    "examples": [
+                      "mem_abc123"
+                    ]
                   }
                 }
               }

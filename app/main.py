@@ -51,22 +51,45 @@ config = {
             "embedding_model_dims": 1024,  # bge-m3 dimension - FIXED to 1024
         }
     },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            "username": os.getenv("NEO4J_USER", "neo4j"),
+            "password": os.getenv("NEO4J_PASSWORD", "password")
+        }
+    },
 }
 
 # Initialize Mem0
-memory = Memory.from_config(config)
+print("🚀 Starting Mem0 initialization...", flush=True)
+print(f"   Neo4j URI: {os.getenv('NEO4J_URI', 'bolt://localhost:7687')}", flush=True)
+print(f"   Neo4j User: {os.getenv('NEO4J_USER', 'neo4j')}", flush=True)
+print(f"   Qdrant Host: {os.getenv('QDRANT_HOST', 'localhost')}", flush=True)
+try:
+    memory = Memory.from_config(config)
+    print("✅ Mem0 initialized successfully with Graph Memory!", flush=True)
+except Exception as e:
+    print(f"❌ Failed to initialize Mem0: {e}", flush=True)
+    import traceback
+    traceback.print_exc()
+    # Fallback: Initialize without graph_store
+    print("⚠️ Falling back to Vector-only mode...", flush=True)
+    config_fallback = {k: v for k, v in config.items() if k != "graph_store"}
+    memory = Memory.from_config(config_fallback)
+    print("✅ Mem0 initialized in Vector-only mode", flush=True)
 
 # Request/Response Models
 class AddMemoryRequest(BaseModel):
     messages: str
-    user_id: Optional[str] = None
+    user_id: Optional[str] = "default_user"  # Default if not provided
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[dict] = None
 
 class SearchMemoryRequest(BaseModel):
     query: str
-    user_id: Optional[str] = None
+    user_id: Optional[str] = "default_user"  # Default if not provided
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     limit: int = 10
@@ -168,6 +191,41 @@ Tags:"""
 def add_memory(request: AddMemoryRequest):
     """Add a new memory with auto-generated tags"""
     try:
+        # 🔍 DEBUG: Log incoming request
+        print("=" * 80)
+        print("📥 INCOMING ADD MEMORY REQUEST from Dify:")
+        print(f"   Messages: {request.messages}")
+        print(f"   User ID: {request.user_id}")
+        print(f"   Agent ID: {request.agent_id}")
+        print(f"   Run ID: {request.run_id}")
+        print(f"   Metadata: {request.metadata}")
+        
+        # 🔧 Smart Conversation ID Detection
+        user_id = request.user_id
+        
+        # Priority 1: Check metadata for conversation_id
+        if request.metadata and "conversation_id" in request.metadata:
+            user_id = request.metadata["conversation_id"]
+            print(f"   ✅ Using conversation_id from metadata: {user_id}")
+        
+        # Priority 2: Use agent_id if available
+        elif request.agent_id and request.agent_id not in ["", "None", None]:
+            user_id = f"agent_{request.agent_id}"
+            print(f"   ✅ Using agent_id: {user_id}")
+        
+        # Priority 3: Use run_id if available
+        elif request.run_id and request.run_id not in ["", "None", None]:
+            user_id = f"run_{request.run_id}"
+            print(f"   ✅ Using run_id: {user_id}")
+        
+        # Priority 4: If Dify sends literal template, generate new conversation ID
+        elif user_id in ["{{sys.conversation_id}}", "{{conversation_id}}", None, ""]:
+            import uuid
+            user_id = f"conv_{str(uuid.uuid4())[:8]}"
+            print(f"   ⚠️  Generated new Conversation ID: {user_id}")
+        
+        print("=" * 80)
+        
         # Generate tags from memory text
         memory_text = request.messages if isinstance(request.messages, str) else request.messages[0].get("content", "") if request.messages else ""
         tags = generate_tags(memory_text)
@@ -175,25 +233,40 @@ def add_memory(request: AddMemoryRequest):
         # Merge tags into metadata
         metadata = request.metadata or {}
         metadata["tags"] = tags
+        # Store the conversation_id in metadata for tracking
+        metadata["conversation_id"] = user_id
         
         result = memory.add(
             messages=request.messages,
-            user_id=request.user_id,
+            user_id=user_id,  # Use processed user_id
             agent_id=request.agent_id,
             run_id=request.run_id,
             metadata=metadata
         )
-        return {"status": "success", "data": result, "tags": tags}
+        return {"status": "success", "data": result, "tags": tags, "conversation_id": user_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/memory/search")
 def search_memory(request: SearchMemoryRequest):
-    """Search memories"""
+    """Search for relevant memories"""
     try:
+        # 🔍 DEBUG: Log incoming search request
+        print("🔎 SEARCH REQUEST from Dify:")
+        print(f"   Query: {request.query}")
+        print(f"   User ID: {request.user_id}")
+        print(f"   Limit: {request.limit}")
+        
+        # 🔧 Fix: Handle literal template string
+        user_id = request.user_id
+        if user_id in ["{{sys.conversation_id}}", "{{conversation_id}}", None, ""]:
+            # For search, we can't generate new ID, use default
+            user_id = "default_user"
+            print(f"   ⚠️  Using default user_id for search: {user_id}")
+        
         results = memory.search(
             query=request.query,
-            user_id=request.user_id,
+            user_id=user_id,
             agent_id=request.agent_id,
             run_id=request.run_id,
             limit=request.limit
